@@ -1,0 +1,35 @@
+std::vector<int> data;
+data.resize(0.1 * 1024ull * 1024 * 1024 / sizeof(int), 1);
+{
+    Stopwatch sw("plain for");
+    std::for_each(data.begin(), data.end(), [](int &v){v += 1;});
+    baseDuration = sw.duration();
+} for(const auto &v : data) if(v != 2) throw std::runtime_error("Failed plain");
+
+{
+    Stopwatch sw("par for", baseDuration);
+    hpx::parallel::for_each(hpx::parallel::par, data.begin(), data.end(), [](int &v){v += 1;});
+} for(const auto &v : data) if(v != 3) throw std::runtime_error("Failed plain");
+
+{
+    Stopwatch sw("par_vec for", baseDuration);
+    hpx::parallel::for_each(hpx::parallel::par_vec, data.begin(), data.end(), [](int &v){v = v + 1;});
+} for(const auto &v : data) if(v != 4) throw std::runtime_error("Failed plain");
+
+---------------------------------------------------------------------
+
+std::experimental::parallel::execution_policy outerPolicy = std::experimental::parallel::seq;
+std::experimental::parallel::execution_policy innerPolicy = std::experimental::parallel::par;
+
+list = listOfVecs;
+{
+    Stopwatch sw("parallel for, parallel sort");
+    for_each(outerPolicy,
+             std::begin(list), std::end(list),
+             [&innerPolicy](std::vector<size_t> &vecToSort){
+        sort(innerPolicy, std::begin(vecToSort), std::end(vecToSort));
+    });
+}
+for(const auto &vecToSort : list)
+if ( ! std::is_sorted(std::begin(vecToSort), std::end(vecToSort)) )
+    throw std::runtime_error("Failed parallel for, parallel sort");
